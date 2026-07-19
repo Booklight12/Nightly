@@ -139,6 +139,13 @@ function getScreenAttackCooldown(desire: number) {
   return 9000 + (20 - desire) * 650 + Math.random() * 6000;
 }
 
+function getComputerScreenDrainPerSecond(aggression: Aggression) {
+  const values = Object.values(aggression);
+  const average = Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  const fullNightDrain = values.every((value) => value >= 20) ? 25 : average >= 15 ? 15 : 5;
+  return fullNightDrain / NIGHT_SECONDS;
+}
+
 function Mascot({ id, small = false, motion = "idle", pose = "front" }: { id: MascotId; small?: boolean; motion?: MascotMotion; pose?: MascotPose }) {
   return (
     <div className={`mascot mascot-${id} motion-${motion} pose-${pose} ${small ? "mascot-small" : ""}`} aria-label={MASCOTS[id].name}>
@@ -320,6 +327,7 @@ export default function Home() {
   const [soundOn, setSoundOn] = useState(true);
   const [safeMode, setSafeMode] = useState(false);
   const [threatRadarEnabled, setThreatRadarEnabled] = useState(true);
+  const [immersiveMode, setImmersiveMode] = useState(false);
   const [batteryPreset, setBatteryPreset] = useState<BatteryPreset>(1);
   const [customBatteryMultiplier, setCustomBatteryMultiplier] = useState(3);
   const [aggressionMenuOpen, setAggressionMenuOpen] = useState(false);
@@ -356,6 +364,12 @@ export default function Home() {
     const storedPreference = window.localStorage.getItem("nightly-threat-radar");
     if (storedPreference === null) return;
     const frame = window.requestAnimationFrame(() => setThreatRadarEnabled(storedPreference !== "off"));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+  useEffect(() => {
+    const storedPreference = window.localStorage.getItem("nightly-immersive-mode");
+    if (storedPreference === null) return;
+    const frame = window.requestAnimationFrame(() => setImmersiveMode(storedPreference === "on"));
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
@@ -690,7 +704,8 @@ export default function Home() {
       if (safeModeRef.current) {
         setBattery(batteryCapacityRef.current);
       } else {
-        const baseUsage = IDLE_BATTERY_DRAIN_PER_SECOND + (cameraOpen ? 0.22 : 0) + (doors.left ? 0.34 : 0) +
+        const baseUsage = IDLE_BATTERY_DRAIN_PER_SECOND + (computerOn ? getComputerScreenDrainPerSecond(aggressionRef.current) : 0) +
+          (cameraOpen ? 0.22 : 0) + (doors.left ? 0.34 : 0) +
           (doors.right ? 0.34 : 0) + (lights.left ? 0.25 : 0) + (lights.right ? 0.25 : 0) +
           (curtainDown ? 0.3 : 0);
         const usage = screenAttackRef.current ? baseUsage * 2 : baseUsage;
@@ -707,7 +722,7 @@ export default function Home() {
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [cameraOpen, curtainDown, doors, finish, lights, phase]);
+  }, [cameraOpen, computerOn, curtainDown, doors, finish, lights, phase]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -875,7 +890,6 @@ export default function Home() {
       const next: ScreenAttack = { remainingMs: SCREEN_ATTACK_DURATION_MS, toggles: 0, lastTick: now };
       screenAttackRef.current = next;
       setScreenAttack(next);
-      setComputerOn(true);
       playSfx("camera", -0.45);
     }, 100);
     return () => window.clearInterval(screenTimer);
@@ -971,10 +985,10 @@ export default function Home() {
       progress: atWindow ? 1 : windowApproachProgress[id],
     }];
   });
-  const usageBars = 1 + Number(cameraOpen) + Number(doors.left) + Number(doors.right) + Number(lights.left) + Number(lights.right) + Number(curtainDown);
+  const usageBars = 1 + Number(computerOn) + Number(cameraOpen) + Number(doors.left) + Number(doors.right) + Number(lights.left) + Number(lights.right) + Number(curtainDown);
   const batteryLevelPercent = Math.min(100, Math.max(0, (battery / batteryCapacity) * 100));
   const nightProgress = ((NIGHT_SECONDS - remaining) / NIGHT_SECONDS) * 100;
-  const dangerActive = (phase === "playing" || phase === "paused") && Boolean(threatAt.left || threatAt.right || windowThreat);
+  const dangerActive = !immersiveMode && (phase === "playing" || phase === "paused") && Boolean(threatAt.left || threatAt.right || windowThreat);
   const controlsLocked = windowLocked && !safeMode;
   const threatNotices = useMemo(() => {
     const notices: ThreatNotice[] = [];
@@ -1117,7 +1131,7 @@ export default function Home() {
   const aggressionIsMixed = aggressionValues.some((value) => value !== aggressionValues[0]);
 
   return (
-    <main className={`game-shell phase-${phase} ${safeMode ? "safe-mode" : ""} ${dangerActive ? "danger-active" : ""}`}>
+    <main className={`game-shell phase-${phase} ${safeMode ? "safe-mode" : ""} ${immersiveMode ? "immersive-mode" : ""} ${dangerActive ? "danger-active" : ""}`}>
       <div className="noise-layer" />
       {androidDevice && portraitMode && (
         <div className="orientation-gate" role="status" aria-live="polite">
@@ -1248,6 +1262,23 @@ export default function Home() {
                   <span><b>威胁栏</b><small>顶部接近警报与防守提示</small></span>
                   <span className="setting-switch" aria-hidden="true"><i /></span>
                 </button>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={immersiveMode}
+                  className={`threat-radar-setting immersive-setting ${immersiveMode ? "enabled" : ""}`}
+                  onClick={() => {
+                    setImmersiveMode((current) => {
+                      const next = !current;
+                      window.localStorage.setItem("nightly-immersive-mode", next ? "on" : "off");
+                      return next;
+                    });
+                    playSfx("ui");
+                  }}
+                >
+                  <span><b>沉浸模式</b><small>隐藏所有怪物预警、动作封锁提示与危险边框</small></span>
+                  <span className="setting-switch" aria-hidden="true"><i /></span>
+                </button>
                 <section className="aggression-bulk" aria-labelledby="aggression-bulk-title">
                   <div className="aggression-section-title">
                     <div><strong id="aggression-bulk-title">全体控制</strong><span>同步覆盖所有目标</span></div>
@@ -1327,7 +1358,7 @@ export default function Home() {
 
       {(phase === "playing" || phase === "paused") && (
         <section
-          className={`office-screen ${controlsLocked ? "controls-locked" : ""} ${lights.left ? "left-light-on" : ""} ${lights.right ? "right-light-on" : ""}`}
+          className={`office-screen ${controlsLocked && !immersiveMode ? "controls-locked" : ""} ${lights.left ? "left-light-on" : ""} ${lights.right ? "right-light-on" : ""}`}
           onPointerMove={(event) => {
             if (cameraOpen || phase === "paused") return;
             const bounds = event.currentTarget.getBoundingClientRect();
@@ -1345,7 +1376,7 @@ export default function Home() {
             <div className="brand-lockup"><span className="brand-mark">N</span><div><b>午夜值守</b><small>SECURITY DESK / NS-84</small></div></div>
             <div className="night-clock"><strong>{formatClock(remaining)}</strong><span>第 1 夜</span></div>
             {safeMode && <div className="safe-badge"><b>∞</b><span>安心模式</span></div>}
-            {controlsLocked && <div className="lock-badge"><i />动作封锁</div>}
+            {controlsLocked && !immersiveMode && <div className="lock-badge"><i />动作封锁</div>}
             <button type="button" className="pause-button" onClick={pauseGame} aria-label="暂停游戏" title="暂停游戏">
               <span className="pause-icon" />
             </button>
@@ -1355,7 +1386,7 @@ export default function Home() {
             <div className="night-progress"><span style={{ width: `${nightProgress}%` }} /></div>
           </header>
 
-          {threatRadarEnabled && threatNotices.length > 0 && (
+          {!immersiveMode && threatRadarEnabled && threatNotices.length > 0 && (
             <div className="threat-radar" role="status" aria-live="polite" aria-label="敌人接近提示">
               {threatNotices.map((notice) => (
                 <div key={notice.id} className={`threat-notice threat-${notice.tone}`}>
@@ -1425,14 +1456,14 @@ export default function Home() {
                 className={`desk-monitor ${computerOn ? "powered" : "powered-off"} ${screenAttack && !safeMode ? "under-attack" : ""}`}
                 onClick={toggleComputer}
                 aria-pressed={computerOn}
-                aria-label={screenAttack && !safeMode ? `电脑电源，失真偶攻击，已切换 ${screenAttack.toggles} 次` : "电脑电源"}
+                aria-label={screenAttack && !safeMode && !immersiveMode ? `电脑电源，失真偶攻击，已切换 ${screenAttack.toggles} 次` : "电脑电源"}
               >
                 <div className="monitor-glow" />
                 {computerOn && screenAttack && !safeMode && (
                   <div className="glitch-face" aria-hidden="true"><i /><i /><b /></div>
                 )}
-                <span>{computerOn ? (screenAttack && !safeMode ? `CYCLE ${screenAttack.toggles}/${SCREEN_DEFENSE_TOGGLES}` : "NO SIGNAL") : "POWER OFF"}</span>
-                {screenAttack && !safeMode && <small>{Math.ceil(screenAttack.remainingMs / 1000)}s</small>}
+                <span>{computerOn ? (screenAttack && !safeMode ? (immersiveMode ? "SIGNAL ERROR" : `CYCLE ${screenAttack.toggles}/${SCREEN_DEFENSE_TOGGLES}`) : "NO SIGNAL") : "POWER OFF"}</span>
+                {screenAttack && !safeMode && !immersiveMode && <small>{Math.ceil(screenAttack.remainingMs / 1000)}s</small>}
                 <i className="monitor-power" aria-hidden="true" />
               </button>
               <div className="desk-fan"><div className="fan-rotor"><i /><i /><i /></div><b /></div>
@@ -1454,10 +1485,10 @@ export default function Home() {
             <kbd className="control-key">W</kbd>
           </button>
 
-          <div className={`power-panel ${screenAttack && !safeMode ? "overload" : ""}`}>
+          <div className={`power-panel ${screenAttack && !safeMode && !immersiveMode ? "overload" : ""}`}>
             <div className="power-readout"><span>{safeMode ? "安心供电" : `剩余 / ${batteryCapacity}%`}</span><strong>{safeMode ? "∞" : Math.ceil(battery)}{!safeMode && <i>%</i>}</strong></div>
             <div className="battery-track"><span style={{ width: `${safeMode ? 100 : batteryLevelPercent}%` }} /></div>
-            <div className="usage-row"><span>{safeMode ? "系统托管" : screenAttack ? "耗电 ×2" : "耗电"}</span><div className="usage-bars">{[1, 2, 3, 4, 5, 6].map((bar) => <i key={bar} className={safeMode || bar <= usageBars ? "on" : ""} />)}</div></div>
+            <div className="usage-row"><span>{safeMode ? "系统托管" : screenAttack && !immersiveMode ? "耗电 ×2" : "耗电"}</span><div className="usage-bars">{[1, 2, 3, 4, 5, 6].map((bar) => <i key={bar} className={safeMode || bar <= usageBars ? "on" : ""} />)}</div></div>
           </div>
 
           <button
@@ -1507,14 +1538,14 @@ export default function Home() {
                   >
                     <span className="camera-channel">{camera.code.replace("CAM ", "")}</span>
                     <kbd className="camera-key">{index + 1}</kbd>
-                    {!safeMode && (Object.keys(positions) as MascotId[]).some((id) => PATHS[id][positions[id]] === camera.id && !(isWindowAttacker(id) && windowApproaching[id])) && <i className="motion-alert" />}
+                    {!immersiveMode && !safeMode && (Object.keys(positions) as MascotId[]).some((id) => PATHS[id][positions[id]] === camera.id && !(isWindowAttacker(id) && windowApproaching[id])) && <i className="motion-alert" />}
                   </button>
                 ))}
                 <div className="door-node door-node-left" style={{ left: `${MAP_POINTS.leftDoor.x}%`, top: `${MAP_POINTS.leftDoor.y}%` }}>L</div>
                 <div className="window-node" style={{ left: `${MAP_POINTS.frontWindow.x}%`, top: `${MAP_POINTS.frontWindow.y}%` }}>W</div>
                 <div className="door-node door-node-right" style={{ left: `${MAP_POINTS.rightDoor.x}%`, top: `${MAP_POINTS.rightDoor.y}%` }}>R</div>
                 <div className="office-node" style={{ left: `${MAP_POINTS.office.x}%`, top: `${MAP_POINTS.office.y}%` }}>办公室</div>
-                {safeMode && monsterLocations.map(({ id, point }) => point && (
+                {safeMode && !immersiveMode && monsterLocations.map(({ id, point }) => point && (
                   <span
                     key={id}
                     className={`monster-pin monster-pin-${id}`}
@@ -1527,7 +1558,7 @@ export default function Home() {
               </div>
               <div className="map-legend">
                 <span><i className="legend-route" />可通行路线</span>
-                {safeMode && <span><i className="legend-monster" />实时目标</span>}
+                {safeMode && !immersiveMode && <span><i className="legend-monster" />实时目标</span>}
               </div>
             </div>
           </div>

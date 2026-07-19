@@ -72,6 +72,9 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(page, /Math\.random\(\) \* 6000/);
   assert.match(page, /phase !== "playing" \|\| safeMode/);
   assert.match(page, /screenAttackRef\.current \? baseUsage \* 2 : baseUsage/);
+  assert.match(page, /function getComputerScreenDrainPerSecond/);
+  assert.match(page, /values\.every\(\(value\) => value >= 20\) \? 25 : average >= 15 \? 15 : 5/);
+  assert.match(page, /computerOn \? getComputerScreenDrainPerSecond\(aggressionRef\.current\) : 0/);
   assert.match(page, /next\.toggles >= SCREEN_DEFENSE_TOGGLES/);
   assert.match(page, /screenCooldownRef\.current = Date\.now\(\) \+ getScreenAttackCooldown/);
   assert.match(page, /失真偶攻击/);
@@ -91,8 +94,14 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(page, /fanPulse\.frequency\.value = 7\.4/);
   assert.match(page, /playSfx\("door", side === "left" \? -0\.88 : 0\.88\)/);
   assert.match(page, /nightly-threat-radar/);
+  assert.match(page, /nightly-immersive-mode/);
   assert.match(page, /role="switch"/);
-  assert.match(page, /threatRadarEnabled && threatNotices\.length > 0/);
+  assert.match(page, /!immersiveMode && threatRadarEnabled && threatNotices\.length > 0/);
+  assert.match(page, /controlsLocked && !immersiveMode/);
+  assert.match(page, /safeMode && !immersiveMode && monsterLocations/);
+  assert.match(page, /SIGNAL ERROR/);
+  assert.match(page, /screenAttack && !safeMode && !immersiveMode \? "overload"/);
+  assert.doesNotMatch(page, /setScreenAttack\(next\);\s*setComputerOn\(true\);\s*playSfx\("camera"/);
   assert.match(page, /key === "c" && computerOn/);
   assert.match(page, /if \(!next\) setCameraOpen\(false\)/);
   assert.match(page, /disabled=\{!computerOn \|\| \(battery <= 0 && !safeMode\)\}/);
@@ -195,6 +204,7 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(globals, /@keyframes faceTwitch/);
   assert.match(globals, /\.power-panel\.overload/);
   assert.match(globals, /\.threat-radar-setting/);
+  assert.match(globals, /\.immersive-setting/);
   assert.match(globals, /\.setting-switch/);
   assert.match(globals, /\.camera-toggle:disabled/);
   assert.match(globals, /orientation:\s*landscape/);
