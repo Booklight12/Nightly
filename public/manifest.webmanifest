@@ -1,0 +1,19 @@
+{
+  "name": "午夜值守",
+  "short_name": "午夜值守",
+  "description": "守住星光乐园的午夜监控室，在电量耗尽前活到早上六点。",
+  "start_url": "/have/nightly",
+  "scope": "/have/nightly/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#050606",
+  "theme_color": "#050606",
+  "icons": [
+    {
+      "src": "/have/nightly/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

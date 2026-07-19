@@ -1,0 +1,22 @@
+[Unit]
+Description=Nightly web game
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/nightly/current
+Environment=NODE_ENV=production
+Environment=PORT=30082
+ExecStart=/opt/nightly/node/bin/node /opt/nightly/current/node_modules/vinext/dist/cli.js start --hostname 127.0.0.1 --port 30082
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
