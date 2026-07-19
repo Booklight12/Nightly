@@ -43,3 +43,25 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# AI coding agents and assistants
+/.agents/
+/.agent/
+/.codex/
+/.openai/
+/.claude/
+/.cursor/
+/.windsurf/
+/.continue/
+/.aider/
+/.cline/
+/.roo/
+/.ai/
+/.github/copilot-instructions.md
+/.aider.conf.yml
+/.aider.chat.history.md
+/.aider.input.history
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
+/copilot-instructions.md
