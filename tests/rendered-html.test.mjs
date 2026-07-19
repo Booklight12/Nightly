@@ -29,12 +29,14 @@ test("server-renders the finished game shell", async () => {
 });
 
 test("keeps the gameplay systems in the shipped client", async () => {
-  const [page, layout, packageJson, globals, manifestSource] = await Promise.all([
+  const [page, layout, packageJson, globals, manifestSource, nginx, installScript] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/nightly.nginx.conf", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/install.sh", import.meta.url), "utf8"),
   ]);
   const manifest = JSON.parse(manifestSource);
 
@@ -75,6 +77,12 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(page, /失真偶攻击/);
   assert.match(page, /className="glitch-face"/);
   assert.match(page, /攻击期间耗电翻倍/);
+  assert.match(page, /const \[deathCause, setDeathCause\]/);
+  assert.match(page, /finish\("lost", id\)/);
+  assert.match(page, /finish\("lost", "glitch"\)/);
+  assert.match(page, /finish\("lost", "hush"\)/);
+  assert.match(page, /死于/);
+  assert.match(page, /MASCOTS\[deathCause\]\.name/);
   assert.match(page, /createStereoPanner\(\)/);
   assert.match(page, /spatialOutput\.pan\.value/);
   assert.match(page, /noiseSource\.loop = true/);
@@ -182,6 +190,8 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(globals, /\.battery-settings/);
   assert.match(globals, /\.battery-presets/);
   assert.match(globals, /\.glitch-face/);
+  assert.match(globals, /\.death-cause/);
+  assert.match(globals, /\.glitch-jumpscare-face/);
   assert.match(globals, /@keyframes faceTwitch/);
   assert.match(globals, /\.power-panel\.overload/);
   assert.match(globals, /\.threat-radar-setting/);
@@ -191,6 +201,9 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.match(globals, /pointer:\s*coarse/);
   assert.equal(manifest.orientation, "landscape");
   assert.equal(manifest.start_url, "/have/nightly");
+  assert.match(nginx, /alias \/opt\/nightly\/assets\//);
+  assert.match(nginx, /Cache-Control "no-store" always/);
+  assert.match(installScript, /cp -a dist\/client\/assets\/\./);
   assert.doesNotMatch(globals, /\.doorway-lit\s*\{[^}]*radial-gradient/);
   assert.match(layout, /lang="zh-CN"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);

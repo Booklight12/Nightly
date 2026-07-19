@@ -388,9 +388,12 @@ button:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
 .result-screen::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(to right, transparent 0 12%, rgba(255,255,255,.018) 12.2%); }
 .result-card { position: relative; z-index: 3; width: min(560px, calc(100% - 40px)); padding: 36px; border-top: 1px solid var(--acid); border-bottom: 1px solid #363d37; background: rgba(8,11,9,.85); animation: enterUp .5s ease-out; }
 .result-code { color: var(--acid); font: 10px Consolas, monospace; }.result-card h2 { margin: 14px 0 8px; font: 900 62px Impact, sans-serif; letter-spacing: 0; }.result-card p { margin: 0 0 28px; color: #889089; line-height: 1.7; font-size: 14px; }
+.death-cause { min-height: 58px; margin: -12px 0 24px; padding: 10px 13px; border-left: 3px solid var(--red); display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: baseline; background: rgba(72,18,14,.38); }
+.death-cause span { grid-row: 1 / 3; align-self: center; color: var(--red); font: 700 10px Consolas, monospace; }.death-cause strong { color: #ece4d9; font-size: 18px; }.death-cause small { color: #9b6f68; font: 8px Consolas, monospace; }
 .result-actions { display: flex; align-items: center; gap: 18px; }.result-actions .start-button { min-width: 160px; height: 48px; }.text-button { border: 0; background: transparent; color: #7f8880; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .result-lost { background: #160908; animation: shake .12s linear 7; }.result-lost .result-code { color: var(--red); }.result-lost .result-card { border-top-color: var(--red); }
 .jumpscare { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; overflow: hidden; opacity: .25; filter: contrast(2) grayscale(.4); }.jumpscare .mascot { transform: scale(3.5); }
+.glitch-jumpscare-face { position: relative; width: 62px; height: 82px; transform: scale(4.5); }
 
 @media (max-width: 900px) {
   .game-shell { min-height: 600px; }
@@ -534,6 +537,7 @@ button:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
   .pause-menu, .result-card { max-height: calc(100% - 24px); overflow: auto; padding: 20px 24px; }
   .pause-menu h2, .result-card h2 { margin: 5px 0 10px; font-size: 34px; }
   .pause-stats { margin-bottom: 12px; }
+  .death-cause { min-height: 44px; margin: -4px 0 12px; padding: 6px 9px; }.death-cause strong { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

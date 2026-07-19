@@ -313,6 +313,7 @@ export default function Home() {
   const [curtainDown, setCurtainDown] = useState(false);
   const [computerOn, setComputerOn] = useState(true);
   const [screenAttack, setScreenAttack] = useState<ScreenAttack | null>(null);
+  const [deathCause, setDeathCause] = useState<EnemyId | null>(null);
   const [windowApproachProgress, setWindowApproachProgress] = useState<Record<WindowAttackerId, number>>({ ...INITIAL_APPROACH_PROGRESS });
   const [windowApproaching, setWindowApproaching] = useState<WindowApproaching>({ ...INITIAL_WINDOW_APPROACHING });
   const [staticBurst, setStaticBurst] = useState(0);
@@ -353,7 +354,9 @@ export default function Home() {
   }, []);
   useEffect(() => {
     const storedPreference = window.localStorage.getItem("nightly-threat-radar");
-    if (storedPreference !== null) setThreatRadarEnabled(storedPreference !== "off");
+    if (storedPreference === null) return;
+    const frame = window.requestAnimationFrame(() => setThreatRadarEnabled(storedPreference !== "off"));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
     const orientation = window.matchMedia("(orientation: portrait)");
@@ -371,15 +374,17 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
+    const resetFrame = window.requestAnimationFrame(() => setShowLandscapeAction(false));
     if (!androidDevice || !portraitMode) {
-      setShowLandscapeAction(false);
-      return;
+      return () => window.cancelAnimationFrame(resetFrame);
     }
-    setShowLandscapeAction(false);
     const actionTimer = window.setTimeout(() => {
       if (window.matchMedia("(orientation: portrait)").matches) setShowLandscapeAction(true);
     }, 5000);
-    return () => window.clearTimeout(actionTimer);
+    return () => {
+      window.cancelAnimationFrame(resetFrame);
+      window.clearTimeout(actionTimer);
+    };
   }, [androidDevice, portraitMode]);
   useEffect(() => { remainingRef.current = remaining; }, [remaining]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -573,6 +578,7 @@ export default function Home() {
 
   const resetGame = useCallback(() => {
     void requestAndroidLandscape();
+    setDeathCause(null);
     setRemaining(NIGHT_SECONDS);
     setBattery(batteryCapacity);
     setCameraOpen(false);
@@ -601,10 +607,11 @@ export default function Home() {
     window.setTimeout(startAmbient, 180);
   }, [batteryCapacity, playSfx, requestAndroidLandscape, startAmbient]);
 
-  const finish = useCallback((result: "won" | "lost") => {
+  const finish = useCallback((result: "won" | "lost", cause: EnemyId | null = null) => {
     if (phaseRef.current !== "playing") return;
     if (result === "lost" && safeModeRef.current) return;
     stopAmbient();
+    setDeathCause(result === "lost" ? cause : null);
     phaseRef.current = result;
     setPhase(result);
     setCameraOpen(false);
@@ -643,6 +650,7 @@ export default function Home() {
 
   const exitToTitle = useCallback(() => {
     stopAmbient();
+    setDeathCause(null);
     setCameraOpen(false);
     setLights({ left: false, right: false });
     setDoors({ left: false, right: false });
@@ -728,7 +736,7 @@ export default function Home() {
                 cooldownsRef.current[id] = Date.now() + getDefenseCooldown(aggressionRef.current[id]);
                 playSfx("thump", 0);
               } else {
-                window.setTimeout(() => finish("lost"), 0);
+                window.setTimeout(() => finish("lost", id), 0);
               }
               return;
             }
@@ -738,7 +746,7 @@ export default function Home() {
               cooldownsRef.current[id] = Date.now() + getDefenseCooldown(aggressionRef.current[id]);
               playSfx("thump", side === "left" ? -0.88 : 0.88);
             } else {
-              window.setTimeout(() => finish("lost"), 0);
+              window.setTimeout(() => finish("lost", id), 0);
             }
             return;
           }
@@ -856,7 +864,7 @@ export default function Home() {
         if (next.remainingMs <= 0) {
           screenAttackRef.current = null;
           setScreenAttack(null);
-          window.setTimeout(() => finish("lost"), 0);
+          window.setTimeout(() => finish("lost", "glitch"), 0);
           return;
         }
         screenAttackRef.current = next;
@@ -889,7 +897,7 @@ export default function Home() {
       const cameraShortcut = getCameraShortcut(event);
       if (windowLocked && !safeMode) {
         if (event.key === "Escape") pauseGame();
-        else if (key === "c" || key === "a" || key === "d" || key === "w" || cameraShortcut !== null) finish("lost");
+        else if (key === "c" || key === "a" || key === "d" || key === "w" || cameraShortcut !== null) finish("lost", "hush");
         return;
       }
       if (key === "c" && computerOn && (battery > 0 || safeMode)) {
@@ -1018,7 +1026,7 @@ export default function Home() {
 
   const triggerForbiddenAction = () => {
     if (windowLocked && !safeMode) {
-      finish("lost");
+      finish("lost", "hush");
       return true;
     }
     return false;
@@ -1543,11 +1551,24 @@ export default function Home() {
 
       {(phase === "won" || phase === "lost") && (
         <section className={`result-screen result-${phase}`}>
-          {phase === "lost" && <div className="jumpscare"><Mascot id={threatAt.left || threatAt.right || windowThreat || "morrow"} motion="attack" /></div>}
+          {phase === "lost" && deathCause && (
+            <div className="jumpscare">
+              {deathCause === "glitch"
+                ? <div className="glitch-jumpscare-face"><div className="glitch-face"><i /><i /><b /></div></div>
+                : <Mascot id={deathCause} motion="attack" />}
+            </div>
+          )}
           <div className="result-card">
             <span className="result-code">{phase === "won" ? "SHIFT COMPLETE" : "CONNECTION LOST"}</span>
             <h2>{phase === "won" ? "6:00 AM" : "信号中断"}</h2>
             <p>{phase === "won" ? "晨光照进大厅，舞台上的东西终于停止移动。" : `你的记录停在 ${formatClock(remaining)}。监控档案已自动封存。`}</p>
+            {phase === "lost" && deathCause && (
+              <div className="death-cause" aria-label={`死于${MASCOTS[deathCause].name}`}>
+                <span>死于</span>
+                <strong>{MASCOTS[deathCause].name}</strong>
+                <small>{MASCOTS[deathCause].label}</small>
+              </div>
+            )}
             <div className="result-actions">
               <button type="button" className="start-button" onClick={resetGame}>再值一夜</button>
               <button type="button" className="text-button" onClick={exitToTitle}>返回标题</button>

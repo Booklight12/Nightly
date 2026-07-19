@@ -37,6 +37,11 @@ cd "${RELEASE_DIR}"
 npm ci
 npm run build
 
+# Keep hashed browser assets across releases so cached HTML never loses the
+# client bundle it references during an atomic release switch.
+sudo install -d -m 0755 "${APP_ROOT}/assets"
+sudo cp -a dist/client/assets/. "${APP_ROOT}/assets/"
+
 sudo ln -sfn "${RELEASE_DIR}" "${APP_ROOT}/current.new"
 sudo mv -Tf "${APP_ROOT}/current.new" "${APP_ROOT}/current"
 
