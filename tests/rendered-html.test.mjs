@@ -203,6 +203,7 @@ test("keeps the gameplay systems in the shipped client", async () => {
   assert.equal(manifest.start_url, "/have/nightly");
   assert.match(nginx, /alias \/opt\/nightly\/assets\//);
   assert.match(nginx, /Cache-Control "no-store" always/);
+  assert.match(installScript, /current\/dist\/client\/assets/);
   assert.match(installScript, /cp -a dist\/client\/assets\/\./);
   assert.doesNotMatch(globals, /\.doorway-lit\s*\{[^}]*radial-gradient/);
   assert.match(layout, /lang="zh-CN"/);
